@@ -4,12 +4,16 @@
   "description": "COMP4537 Assignment 1",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
   },
   "author": "Ferrel Anthoni",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.27.2",
     "express": "^4.18.1",
-    "mongoose": "^6.6.2"
+    "https": "^1.0.0",
+    "mongoose": "^6.6.2",
+    "nodemon": "^2.0.20"
   }
 }
