@@ -83,7 +83,12 @@ app.get("/api/v1/pokemons/", async (req, res) => {
     return res.status(400).json({errMsg: "Count or After query params are missing!", status: "ClientError"})
   }
   await pokemonModel.find({}).skip(after).limit(count)
-    .then((respond) => {res.status(200).json({data: respond, status: "Success"})})
+    .then((respond) => {
+      if (respond.length === 0) {
+        return res.status(400).json({status: "Error", errMsg: "Invalid query! There are no more pokemons!"})
+      }
+      res.status(200).json({data: respond, status: "Success"})
+    })
     .catch((err) => {
       console.log('err', err)
       return res.status(500).json({status: "ServerError", errMsg: "An error occured when fetching pokemons"})
@@ -117,10 +122,13 @@ app.get("/api/v1/pokemon/:id", async (req, res) => {
 
   await pokemonModel.find({_id: id})
     .then((pokemon) => {
-      return res.status(200).json({status: "Success", data: pokemon})
+      if (pokemon.length !== 1) {
+        return res.status(400).json({status: "Error", errMsg: "There are no pokemon with id " + id})
+      }
+      return res.status(200).json({status: "Success", data: pokemon[0]})
     })
     .catch((err) => {
-      return res.status(400).json({status: "Error", errMsg: "There is no pokemon with id " + id})
+      return res.status(500).json({status: "Error", errMsg: "There is no pokemon with id " + id})
     })
 })
 
