@@ -76,6 +76,7 @@ app.listen(process.env.PORT || port, async (err) => {
   }
 )
 
+// Get batch pokemon data
 app.get("/api/v1/pokemons/", async (req, res) => {
   const {count, after} = req.query;
   if (!count || !after) {
@@ -89,6 +90,7 @@ app.get("/api/v1/pokemons/", async (req, res) => {
     });
 })
 
+// Add a pokemon
 app.post("/api/v1/pokemon", async (req, res) => {
   const pokemonValues = req.body;
   if (!pokemonValues || Object.keys(pokemonValues).length === 0) {
@@ -106,6 +108,7 @@ app.post("/api/v1/pokemon", async (req, res) => {
     })
 })
 
+// Get a pokemon data by id
 app.get("/api/v1/pokemon/:id", async (req, res) => {
   const {id} = req.params
   if (!id) {
@@ -121,6 +124,7 @@ app.get("/api/v1/pokemon/:id", async (req, res) => {
     })
 })
 
+// Get pokemon image
 app.get("/api/v1/pokemonImage/:id", async (req, res) => {
   const {id} = req.params
   if (!id) {
@@ -142,6 +146,55 @@ app.get("/api/v1/pokemonImage/:id", async (req, res) => {
   } catch (err) {
     console.log('err', err)
     return res.status(500).json({status: "Error", errMsg: err})
+  }
+})
+
+// Delete a pokemon
+app.delete("/api/v1/pokemon/:id", async (req, res) => {
+  const {id} = req.params
+  if (!id) {
+    return res.status(400).json({status: "ClientError", errMsg: "pokemonId is missing in the request params!"})
+  }
+
+  await pokemonModel.deleteOne({_id: id})
+    .then(respond => {
+      console.log('doc', respond)
+      return res.status(200).json({status: "Success", msg: `Pokemon with id ${id} has been successfully deleted`})
+    })
+    .catch(err => {
+      console.error(`Error found when deleting a pokemon with id ${id}: ${err}`)
+      return res.status(500).json({status: "Error", errMsg: "Issue found when deleting pokemon with id " + id})
+    })
+})
+
+// Upsert a partial pokemon document
+app.patch("/api/v1/pokemon/:id", async (req, res) => {
+  const {id} = req.params
+  const newPokemonValues = req.body
+
+  try {
+    await pokemonModel.updateOne({_id: id}, newPokemonValues)
+      .then(doc => {
+        return res.status(200).json({status: "Success", data: {newPokemonValues}})
+      })
+  } catch (err) {
+    return res.status(500).json({status: "Errror", errMsg: `Error when upserting pokemon ${id}`})
+  }
+})
+
+// Update the entire pokemon document
+app.put("/api/v1/pokemon/:id", async (req, res) => {
+  const {id} = req.params
+  const newPokemonValues = req.body
+
+  try {
+    await pokemonModel.replaceOne({_id: id}, newPokemonValues)
+      .then(doc => {
+        return res.status(200).json({status: "Success", data: newPokemonValues})
+      })
+  } catch (err) {
+    console.log(err)
+    return res.status(500).json({status: "Errror", errMsg: `Error when updating pokemon ${id}`})
   }
 })
 
