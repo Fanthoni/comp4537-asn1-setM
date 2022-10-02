@@ -44,7 +44,7 @@ app.listen(process.env.PORT || port, async (err) => {
         })
 
       pokemonSchema = new Schema({
-        "id": {type: String},
+        "id": {type: String, unique: true},
         "name": {
           "english": {type: String, maxlength: 20},
           "japanese": {type: String},
@@ -125,7 +125,7 @@ app.get("/api/v1/pokemon/:id", async (req, res) => {
       if (pokemon.length !== 1) {
         return res.status(400).json({status: "Error", errMsg: "There are no pokemon with id " + id})
       }
-      return res.status(200).json({status: "Success", data: pokemon[0]})
+      return res.status(200).json({status: "Success", data: pokemon})
     })
     .catch((err) => {
       return res.status(500).json({status: "Error", errMsg: "There is no pokemon with id " + id})
