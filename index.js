@@ -54,7 +54,14 @@ app.listen(process.env.PORT || port, async (err) => {
         "type": {
           type: [String], enum: pokemonTypes
         },
-        "base": {type: Object},
+        "base": {
+          "HP": {type: Number, required: true},
+          "Attack": {type: Number, required: true},
+          "Defense": {type: Number, required: true},
+          "Speed": {type: Number, required: true},
+          "Speed Attack": {type: Number, required: true},
+          "Speed Defense": {type: Number, required: true},
+        },
       }, {versionKey: false});
       pokemonModel = mongoose.model("pokemons", pokemonSchema)
 
@@ -62,13 +69,19 @@ app.listen(process.env.PORT || port, async (err) => {
       await axios.get("https://raw.githubusercontent.com/fanzeyi/pokemon.json/master/pokedex.json")
         .then((res) => {
           pokemons = res.data
+          pokemons.forEach(poke => {
+            poke.base["Speed Attack"] = poke.base["Sp. Attack"]
+            poke.base["Speed Defense"] = poke.base["Sp. Defense"]
+            delete poke.base["Sp. Attack"];
+            delete poke.base["Sp. Defense"];
+          });
         })
         .catch((err) => {
           console.log('err', err)
         });
       
-      // await pokemonModel.deleteMany({});
-      // await pokemonModel.insertMany(pokemons);
+      await pokemonModel.deleteMany({});
+      await pokemonModel.insertMany(pokemons);
     } catch (error) {
       console.log('db connection error', error);
     }
@@ -82,6 +95,7 @@ app.get("/api/v1/pokemons/", async (req, res) => {
   if (!count || !after) {
     return res.status(400).json({errMsg: "Count or After query params are missing!", status: "ClientError"})
   }
+
   await pokemonModel.find({}).skip(after).limit(count)
     .then((respond) => {
       if (respond.length === 0) {
@@ -101,7 +115,22 @@ app.post("/api/v1/pokemon", async (req, res) => {
   if (!pokemonValues || Object.keys(pokemonValues).length === 0) {
     return res.status(400).json({status: "ClientError", errMsg: "request body is missing!"})
   }
-  // console.log('pokemonValues', pokemonValues)
+
+  const {id} = req.body;
+  if (!id) {
+    return res.status(400).json({status: "ClientError", errMsg: 
+      `Id is missing from the request body`
+  })
+  }
+
+  const pokemon = await pokemonModel.find({id: id})
+  if (pokemon.length > 0) {
+    console.log('pokemon', pokemon)
+    return res.status(400).json({status: "ClientError", errMsg: 
+      `Pokemon with id ${id} already exists`
+    })
+  }
+
   await pokemonModel.create(pokemonValues)
     .then((doc) => {
       console.log('doc', doc)
@@ -120,7 +149,7 @@ app.get("/api/v1/pokemon/:id", async (req, res) => {
     return res.status(400).json({status: "ClientError", errMsg: "pokemonId is missing in the request params!"})
   }
 
-  await pokemonModel.find({_id: id})
+  await pokemonModel.find({id: id})
     .then((pokemon) => {
       if (pokemon.length !== 1) {
         return res.status(400).json({status: "Error", errMsg: "There are no pokemon with id " + id})
@@ -164,7 +193,14 @@ app.delete("/api/v1/pokemon/:id", async (req, res) => {
     return res.status(400).json({status: "ClientError", errMsg: "pokemonId is missing in the request params!"})
   }
 
-  await pokemonModel.deleteOne({_id: id})
+  const pokemon = await pokemonModel.find({id: id})
+  if (pokemon.length == 0) {
+    return res.status(400).json({status: "ClientError", errMsg: 
+      `Pokemon with id ${id} does not exist`
+    })
+  }
+
+  await pokemonModel.deleteOne({id: id})
     .then(respond => {
       console.log('doc', respond)
       return res.status(200).json({status: "Success", msg: `Pokemon with id ${id} has been successfully deleted`})
@@ -180,8 +216,15 @@ app.patch("/api/v1/pokemon/:id", async (req, res) => {
   const {id} = req.params
   const newPokemonValues = req.body
 
+  const pokemon = await pokemonModel.find({id: id})
+  if (pokemon.length == 0) {
+    return res.status(400).json({status: "ClientError", errMsg: 
+      `Pokemon with id ${id} does not exists`
+    })
+  }
+
   try {
-    await pokemonModel.updateOne({_id: id}, newPokemonValues)
+    await pokemonModel.updateOne({id: id}, newPokemonValues)
       .then(doc => {
         return res.status(200).json({status: "Success", data: {newPokemonValues}})
       })
@@ -195,16 +238,36 @@ app.put("/api/v1/pokemon/:id", async (req, res) => {
   const {id} = req.params
   const newPokemonValues = req.body
 
+  const pokemon = await pokemonModel.find({id: id})
+  if (pokemon.length == 0) {
+    return res.status(400).json({status: "ClientError", errMsg: 
+      `Pokemon with id ${id} does not exists`
+    })
+  }
+
+
   try {
-    await pokemonModel.replaceOne({_id: id}, newPokemonValues)
+    console.log('typeof req.body.base.HP', typeof req.body.base.HP)
+    await pokemonModel.findOneAndUpdate({id: id}, newPokemonValues, {upsert: true})
       .then(doc => {
+        console.log('doc here', doc)
         return res.status(200).json({status: "Success", data: newPokemonValues})
+      })
+      .catch(err => {
+        return res.status(400).json({status: "ClientError", errMsg: "One or more properties may be invalid"})
       })
   } catch (err) {
     console.log(err)
     return res.status(500).json({status: "Errror", errMsg: `Error when updating pokemon ${id}`})
   }
 })
+
+app.use((req, res, next) => {
+  res.status(404).send({
+  status: 404,
+  error: "Not Found"
+  })
+ })
 
 
 
