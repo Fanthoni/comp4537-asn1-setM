@@ -91,12 +91,16 @@ app.listen(process.env.PORT || port, async (err) => {
 
 // Get batch pokemon data
 app.get("/api/v1/pokemons/", async (req, res) => {
-  const {count, after} = req.query;
-  if (!count || !after) {
-    return res.status(400).json({errMsg: "Count or After query params are missing!", status: "ClientError"})
-  }
+  let {count, after} = req.query;
+  
 
   try {
+    count = parseInt(count)
+    after = parseInt(after)
+    if (!count || !after || isNaN(after) || isNaN(count) || count <= 0 || after <= 0) {
+      return res.status(400).json({errMsg: "Count or After query params might be missing or has an invalid value!", status: "ClientError"})
+    }
+
     pokemonModel.find({}).skip(after).limit(count)
     .then((respond) => {
       if (respond.length === 0) {
@@ -104,6 +108,7 @@ app.get("/api/v1/pokemons/", async (req, res) => {
       }
       res.status(200).json({data: respond, status: "Success"})
     })
+
   } catch (err) {
     return res.status(500).json({errMsg: "Error occured"})
   }  
