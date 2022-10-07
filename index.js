@@ -96,17 +96,17 @@ app.get("/api/v1/pokemons/", async (req, res) => {
     return res.status(400).json({errMsg: "Count or After query params are missing!", status: "ClientError"})
   }
 
-  await pokemonModel.find({}).skip(after).limit(count)
+  try {
+    pokemonModel.find({}).skip(after).limit(count)
     .then((respond) => {
       if (respond.length === 0) {
         return res.status(400).json({status: "Error", errMsg: "Invalid query! There are no more pokemons!"})
       }
       res.status(200).json({data: respond, status: "Success"})
     })
-    .catch((err) => {
-      console.log('err', err)
-      return res.status(500).json({status: "ServerError", errMsg: "An error occured when fetching pokemons"})
-    });
+  } catch (err) {
+    return res.status(500).json({errMsg: "Error occured"})
+  }  
 })
 
 // Add a pokemon
@@ -116,7 +116,7 @@ app.post("/api/v1/pokemon", async (req, res) => {
     return res.status(400).json({status: "ClientError", errMsg: "request body is missing!"})
   }
 
-  const {id} = req.body;
+  const {id} = req.body; 
   if (!id) {
     return res.status(400).json({status: "ClientError", errMsg: 
       `Id is missing from the request body`
@@ -133,7 +133,6 @@ app.post("/api/v1/pokemon", async (req, res) => {
 
   await pokemonModel.create(pokemonValues)
     .then((doc) => {
-      console.log('doc', doc)
       return res.status(200).json({status: "Success!", data: doc})
     })
     .catch((err) => {
@@ -240,26 +239,31 @@ app.put("/api/v1/pokemon/:id", async (req, res) => {
 
   const pokemon = await pokemonModel.find({id: id})
   if (pokemon.length == 0) {
-    return res.status(400).json({status: "ClientError", errMsg: 
-      `Pokemon with id ${id} does not exists`
+    await pokemonModel.create(newPokemonValues)
+    .then((doc) => {
+      return res.status(200).json({status: "Success!", data: doc})
     })
+    .catch((err) => {
+      console.log('err', err)
+      return res.status(500).json({status: "ServerErrror", errMsg: "Error encountered when creating a pokemon"})
+    })
+  } else {
+    // if a pokemon already exist, replace the values instead
+    try {
+      await pokemonModel.findOneAndUpdate({id: id}, newPokemonValues, {upsert: true})
+        .then(doc => {
+          return res.status(200).json({status: "Success", data: newPokemonValues})
+        })
+        .catch(err => {
+          return res.status(400).json({status: "ClientError", errMsg: "One or more properties may be invalid"})
+        })
+    } catch (err) {
+      console.log(err)
+      return res.status(500).json({status: "Errror", errMsg: `Error when updating pokemon ${id}`})
+    }
   }
 
-
-  try {
-    console.log('typeof req.body.base.HP', typeof req.body.base.HP)
-    await pokemonModel.findOneAndUpdate({id: id}, newPokemonValues, {upsert: true})
-      .then(doc => {
-        console.log('doc here', doc)
-        return res.status(200).json({status: "Success", data: newPokemonValues})
-      })
-      .catch(err => {
-        return res.status(400).json({status: "ClientError", errMsg: "One or more properties may be invalid"})
-      })
-  } catch (err) {
-    console.log(err)
-    return res.status(500).json({status: "Errror", errMsg: `Error when updating pokemon ${id}`})
-  }
+  
 })
 
 app.use((req, res, next) => {
